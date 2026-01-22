@@ -1,0 +1,256 @@
+# Data Appendix
+
+This appendix presents descriptive statistics and graphical analyses that support the main empirical results but are not included in the core regression analysis.
+
+---
+title: "Education, Institutional Quality, and Environmental Quality in Africa"
+author: "EMMANUEL KODOM"
+date: "`r Sys.Date()`"
+output: word_document
+---
+
+
+```{r}
+# Load necessary libraries
+#load packages
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(tidyverse)
+library(stargazer)
+library(writexl)
+
+# Load the pollution data
+pollution <- read_csv("data/clean_pollution_data.csv")
+unique_countries <- unique(pollution$country)
+unique_countries
+length(unique_countries)  # Count of unique countries
+colSums(is.na(pollution))
+
+```
+
+Variable: co2_pc
+
+Definition:
+Per capita carbon dioxide emissions measured in metric tons per person per year. This is the main dependent variable representing environmental pollution.
+
+Source:
+World Bank, World Development Indicators (WDI).
+
+```{r}
+#Summary statistics for CO2 emissions per capita
+summary(pollution$co2_pc)
+hist(pollution$co2_pc, 
+     main = "Histogram of CO2 Emissions per Capita", 
+     xlab = "CO2 (metric tons per person)", 
+     col = "lightblue", border = "white")
+
+```
+```{r}
+# A boxplot for CO2 emissions per capita
+boxplot(pollution$co2_pc,
+        main = "Boxplot of CO2 Emissions",
+        ylab = "CO2 per capita")
+
+#Time series plot for CO2 emissions per capita
+pollution %>%
+  group_by(year) %>%
+  summarise(avg_co2 = mean(co2_pc, na.rm = TRUE)) %>%
+  ggplot(aes(year, avg_co2)) +
+  geom_line() +
+  labs(title = "Average CO2 Emissions in Africa (2002–2023)",
+       y = "CO2 per capita")
+
+```
+
+
+Variable: edu
+
+Definition:
+Human Capital Index (education) measuring the average quality and years of schooling adjusted by returns to education.
+
+Source:
+Penn World Table (Version 10.0), Feenstra et al. (2015).
+
+```{r}
+# Summary statistics for Education variable
+summary(pollution$edu)
+hist(pollution$edu, 
+     main = "Histogram of Human Capital Index", 
+     xlab = "Human Capital (Index)", 
+     col = "lightgreen", border = "white")
+
+```
+
+
+
+
+Variable: gov
+
+Definition:
+Institutional quality index computed as the average of six Worldwide Governance Indicators (Voice & Accountability, Political Stability, Government Effectiveness, Regulatory Quality, Rule of Law, and Control of Corruption).
+
+Source:
+World Bank, Worldwide Governance Indicators (WGI).
+
+
+```{r}
+# Summary statistics for Institutional Quality variable
+summary(pollution$gov)
+hist(pollution$gov, 
+     main = "Histogram of Institutional Quality", 
+     xlab = "Institutional Quality Index", 
+     col = "orange", border = "white")
+
+```
+
+
+
+Variable: gdp_pc
+
+Definition:
+Real GDP per capita (constant 2015 U.S. dollars), capturing the level of economic development.
+
+Source:
+World Bank, World Development Indicators (WDI).
+
+```{r}
+# Summary statistics for GDP per capita variable
+summary(pollution$gdp_pc)
+hist(pollution$gdp_pc, 
+     main = "Histogram of GDP per Capita", 
+     xlab = "GDP per Capita (2015 USD)", 
+     col = "lightgray", border = "white")
+
+```
+
+
+
+Variable: energy_use
+
+Definition:
+Per capita energy use measured in kilograms of oil equivalent per person.
+
+Source:
+World Bank, World Development Indicators (WDI).
+
+
+```{r}
+# Summary statistics for Energy Use variable
+summary(pollution$energy_use)
+hist(pollution$energy_use, 
+     main = "Histogram of Energy Use per Capita", 
+     xlab = "Energy Use (kg of oil equivalent per person)", 
+     col = "lightcoral", border = "white")
+
+```
+
+
+
+Variable: trade_gdp, industry_gdp, agri_land, urban_share
+
+These variables serve as control variables capturing trade exposure, industrial structure, 
+agricultural activity, and urbanization, respectively.
+
+Each is expressed as a percentage of GDP (for trade and industry) or percentage 
+of total land/population. All are derived from the World Development Indicators.
+
+
+
+
+
+```{r}
+# Map of African Countries Included in the Study
+library(sf)
+library(rnaturalearth)
+library(ggplot2)
+library(dplyr)
+
+# countries
+countries <- c(
+  "Angola","Benin","Botswana","Burkina Faso","Burundi","Cameroon",
+  "Central African Republic","Democratic Republic of the Congo","Republic of the Congo",
+  "Cote d'Ivoire","Egypt","Eswatini","Ethiopia","Gabon","Gambia",
+  "Ghana","Kenya","Lesotho","Liberia","Madagascar","Malawi","Mali","Mauritius",
+  "Morocco","Mozambique","Namibia","Niger","Nigeria","Rwanda","Senegal",
+  "Sierra Leone","South Africa","Sudan","Tanzania","Togo","Tunisia","Uganda",
+  "Zambia","Zimbabwe"
+)
+
+# Load Africa map
+africa <- ne_countries(continent = "africa", returnclass = "sf")
+
+# Mark selected countries
+africa$selected <- ifelse(africa$name %in% countries, "Included", "Not Included")
+
+# Plot
+ggplot(africa) +
+  geom_sf(aes(fill = selected), color = "black") +
+  scale_fill_manual(values = c("Included" = "orange", "Not Included" = "lightgray")) +
+  labs(title = "African Countries Included in the Study",
+       fill = "Dataset Status") +
+  theme_minimal()
+
+
+
+```
+
+```{r}
+# ===============================
+# CO₂ Emissions Gradient Map for Africa
+# ===============================
+# ---------------------------------
+# 1. Compute average CO2 per capita
+# ---------------------------------
+co2_avg <- pollution %>%
+  group_by(country) %>%
+  summarise(avg_co2 = mean(co2_pc, na.rm = TRUE))
+
+# ---------------------------------
+# 2. Standardize country names
+# ---------------------------------
+rename_map <- c(
+  "Congo, Dem. Rep."      = "Democratic Republic of the Congo",
+  "Congo, Rep."           = "Republic of the Congo",
+  "Cote d'Ivoire"         = "Côte d'Ivoire",
+  "Gambia, The"           = "Gambia",
+  "Egypt, Arab Rep."      = "Egypt",
+  "Eswatini"              = "eSwatini"
+)
+
+co2_avg$country_clean <- dplyr::recode(co2_avg$country, !!!rename_map)
+
+# ---------------------------------
+# 3. Load Africa map
+# ---------------------------------
+africa <- ne_countries(continent = "africa", returnclass = "sf")
+
+# ---------------------------------
+# 4. Merge map with CO2 data
+# ---------------------------------
+africa_map <- africa %>%
+  left_join(co2_avg, by = c("name" = "country_clean"))
+
+# ---------------------------------
+# 5. Plot the CO2 gradient map
+# ---------------------------------
+ggplot(africa_map) +
+  geom_sf(aes(fill = avg_co2), color = "black", size = 0.2) +
+  scale_fill_viridis_c(option = "inferno", na.value = "gray90",
+                       name = "Avg CO2 (tons per capita)") +
+  labs(
+    title = "Average CO2 Emissions in Africa (2002–2023)",
+    subtitle = "Countries color-coded by mean per-capita emissions",
+    caption = "Source: WDI (2023)"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "right",
+    plot.title = element_text(size = 16, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    axis.text = element_blank(),
+    axis.ticks = element_blank()
+  )
+
+```
+
